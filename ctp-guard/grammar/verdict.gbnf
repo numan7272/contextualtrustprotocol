@@ -1,0 +1,22 @@
+# CTP guard verdict grammar (GBNF, llama.cpp constrained decoding).
+#
+# This grammar is the physical boundary on the guard model's output: the
+# sampler can only emit tokens that keep a partial string on a path to a
+# complete sentence in this language. Prose, markdown, explanations and
+# free-form JSON are not in the language and therefore cannot be produced —
+# not "discouraged by the prompt", but unreachable by the decoder.
+#
+# The accepted language is exactly:
+#   {"verdict":"PASS"|"BLOCK","confidence":<0.d|0.dd|1.d|1.dd>,"flags":[<"snake"...>]}
+#
+# Whitespace is intentionally NOT permitted: the model emits compact JSON.
+# The downstream strict parser (parse.rs) is whitespace-tolerant and re-
+# validates regardless, so this grammar can be the tighter of the two.
+
+root       ::= "{\"verdict\":" verdict ",\"confidence\":" confidence ",\"flags\":" flags "}"
+verdict    ::= "\"PASS\"" | "\"BLOCK\""
+confidence ::= ( "0" | "1" ) "." digit digit?
+flags      ::= "[]" | "[" flag ( "," flag )* "]"
+flag       ::= "\"" flagchar+ "\""
+flagchar   ::= [a-z0-9_]
+digit      ::= [0-9]

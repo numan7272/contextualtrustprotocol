@@ -215,6 +215,7 @@ dependencies = [
 name = "ctp-guard"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "ctp-core",
  "hyper-util",
  "llama-cpp-2",
@@ -223,6 +224,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "toml",

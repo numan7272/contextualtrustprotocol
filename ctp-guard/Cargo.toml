@@ -15,8 +15,10 @@ llama = ["dep:llama-cpp-2"]
 
 [dependencies]
 ctp-core.workspace = true
+async-trait.workspace = true
 llama-cpp-2 = { workspace = true, optional = true }
 prost.workspace = true
+thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "time", "signal", "io-util", "sync"] }
