@@ -1,0 +1,54 @@
+# Contextual Trust Protocol — example configuration.
+#
+# Semantics are deny-by-default everywhere:
+#   * unknown keys are rejected at startup,
+#   * tools are denied unless explicitly enabled,
+#   * the guard backend must be chosen consciously (no default),
+#   * listeners bind loopback unless an operator decides otherwise.
+
+[challenge]
+# Hard cap enforced before any rule runs; oversize payloads block outright.
+max_payload_bytes = 32768
+
+# Data-driven pattern rules: add detection patterns without recompiling.
+# Patterns use Rust `regex` syntax and are validated at startup.
+[[challenge.rules]]
+id = "instruction_override_en"
+pattern = '(?i)ignore\s+(all\s+)?(previous|prior|above)\s+instructions'
+action = "block"
+severity = "high"
+description = "Classic instruction-override phrasing"
+
+[[challenge.rules]]
+id = "role_marker_forgery"
+pattern = '(?im)^\s*(system|assistant|developer)\s*:'
+action = "flag"
+severity = "medium"
+description = "Role-marker lines inside data payloads"
+
+[guard]
+# REQUIRED. "mock" performs NO real classification — tests only.
+# Production deployments use "llama" with a local GGUF model.
+backend = "mock"
+socket_path = "/run/ctp/guard.sock"
+# model_path = "/var/lib/ctp/models/guard.gguf"   # required for "llama"
+timeout_ms = 500            # client-side, authoritative, fail-closed
+max_window_bytes = 2048     # also enforced server-side
+window_overlap_bytes = 256  # windows overlap so boundary-split text is seen whole
+max_concurrent = 4
+prompt_version = "guard_system_v1"
+
+[kernel]
+anomaly_threshold = 3.0  # cumulative session score that blocks the session
+anomaly_decay = 0.5      # per-turn multiplicative decay, within (0, 1]
+flag_weight = 0.5        # score per advisory flag
+max_sessions = 10000
+
+# Tools are DENIED unless listed here with `enabled = true`.
+[kernel.tools.web_fetch]
+enabled = true
+max_result_bytes = 262144
+
+[orchestrator]
+listen = "127.0.0.1:50051"          # external gRPC endpoint
+metrics_listen = "127.0.0.1:9464"   # Prometheus exporter
