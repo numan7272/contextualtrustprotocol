@@ -1,0 +1,80 @@
+[workspace]
+resolver = "3"
+members = [
+    "ctp-core",
+    "ctp-challenge",
+    "ctp-guard",
+    "ctp-kernel",
+    "ctp-orchestrator",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+repository = "https://github.com/numan7272/contextualtrustprotocol"
+
+# All versions are exact-pinned (`=`). Upgrades are deliberate, reviewed
+# events — never a side effect of `cargo update`. Cargo.lock is committed.
+[workspace.dependencies]
+# Internal crates
+ctp-core = { path = "ctp-core" }
+ctp-challenge = { path = "ctp-challenge" }
+ctp-kernel = { path = "ctp-kernel" }
+
+# Async runtime & transport
+tokio = { version = "=1.52.3", default-features = false }
+tokio-stream = { version = "=0.1.18", default-features = false }
+tonic = "=0.14.6"
+tonic-prost = "=0.14.6"
+prost = "=0.14.4"
+tower = { version = "=0.5.3", default-features = false }
+hyper-util = "=0.1.20"
+async-trait = "=0.1.89"
+
+# Serialization & config
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.150"
+toml = "=1.1.2"
+
+# Errors, logging, metrics
+thiserror = "=2.0.18"
+tracing = "=0.1.44"
+tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "json"] }
+metrics = "=0.24.6"
+metrics-exporter-prometheus = { version = "=0.18.3", default-features = false, features = ["http-listener"] }
+
+# Challenge-layer detection primitives
+regex = "=1.12.4"
+unicode-security = "=0.1.2"
+base64 = "=0.22.1"
+hex = "=0.4.3"
+percent-encoding = "=2.3.2"
+
+# Misc
+uuid = { version = "=1.23.3", features = ["v4", "serde"] }
+
+# Guard inference backend (feature-gated; never built by default)
+llama-cpp-2 = "=0.1.146"
+
+# Build-time
+tonic-prost-build = "=0.14.6"
+protoc-bin-vendored = "=3.2.0"
+
+# Dev
+tempfile = "=3.27.0"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+
+# The guard sits in the per-tool-call hot path; panics must terminate the
+# process (systemd restarts it) instead of unwinding into undefined states.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

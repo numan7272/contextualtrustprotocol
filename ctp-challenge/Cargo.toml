@@ -1,0 +1,21 @@
+[package]
+name = "ctp-challenge"
+description = "CTP Layer 1: static heuristic scanner (sub-millisecond, pure CPU, no I/O)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+ctp-core.workspace = true
+base64.workspace = true
+hex.workspace = true
+percent-encoding.workspace = true
+regex.workspace = true
+serde.workspace = true
+tracing.workspace = true
+unicode-security.workspace = true
+
+[lints]
+workspace = true

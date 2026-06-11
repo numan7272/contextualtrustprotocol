@@ -1,0 +1,4 @@
+# Deterministic toolchain: builds are reproducible events, not host lottery.
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]

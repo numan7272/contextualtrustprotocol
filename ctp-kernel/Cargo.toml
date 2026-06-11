@@ -1,0 +1,22 @@
+[package]
+name = "ctp-kernel"
+description = "CTP Layer 3: kernel wrapper middleware vetting both directions of tool I/O"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+ctp-core.workspace = true
+ctp-challenge.workspace = true
+async-trait.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints]
+workspace = true

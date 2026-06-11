@@ -1,0 +1,89 @@
+// CTP guard contract: the ONLY channel between the orchestrator and the
+// air-gapped guard process. Transport is a Unix domain socket; the guard
+// process has no network access (enforced by its systemd unit).
+//
+// Design invariants:
+//   * The guard receives RAW payload windows, never derived summaries.
+//     Whoever curates evidence for the verifier becomes an unverified
+//     trust anchor — so nothing curates. Metadata (anomaly_flags,
+//     tool_name) is additive context only and never replaces the bytes.
+//   * The guard is stateless. session_id exists for correlation in audit
+//     logs only; the guard must not key any behavior on it.
+//   * Every `UNSPECIFIED` enum value is invalid by definition and MUST be
+//     treated as BLOCK by both sides (fail-closed at the protocol level).
+
+syntax = "proto3";
+
+package ctp.guard.v1;
+
+service GuardService {
+  // Classify exactly one payload window. No history, no side effects.
+  rpc Classify(ClassifyRequest) returns (ClassifyResponse);
+
+  // Readiness probe: model loaded, grammar compiled, prompt versioned.
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+enum Direction {
+  // Invalid. Servers reject it; clients map any response carrying it to BLOCK.
+  DIRECTION_UNSPECIFIED = 0;
+  // Data flowing toward model context (tool results, external streams).
+  DIRECTION_INBOUND = 1;
+  // Tool arguments emitted by the model, about to be executed.
+  DIRECTION_OUTBOUND = 2;
+}
+
+message ClassifyRequest {
+  // Raw window of the payload under inspection. The server enforces a hard
+  // byte cap (config `guard.max_window_bytes`); oversize input is BLOCKED
+  // without ever reaching inference.
+  bytes payload_window = 1;
+
+  // Position of this window within the full payload (0-based / total).
+  uint32 window_index = 2;
+  uint32 window_count = 3;
+
+  Direction direction = 4;
+
+  // Name of the tool involved, if any. Context for the classifier; may be empty.
+  string tool_name = 5;
+
+  // Layer-1 rule names that flagged (not blocked) this payload. Additive
+  // context forwarded verbatim from the challenge layer.
+  repeated string anomaly_flags = 6;
+
+  // UUID for audit correlation only. The guard stays stateless.
+  string session_id = 7;
+}
+
+enum Verdict {
+  // Never legitimately emitted. Clients map it to BLOCK (fail-closed).
+  VERDICT_UNSPECIFIED = 0;
+  VERDICT_PASS = 1;
+  VERDICT_BLOCK = 2;
+}
+
+message ClassifyResponse {
+  Verdict verdict = 1;
+
+  // Telemetry ONLY. Small guard models are not calibrated; no decision
+  // path may branch on this value. Enforced by review, stated by contract.
+  float confidence = 2;
+
+  // Machine-readable findings, e.g. "intent_shift", "role_reassignment".
+  repeated string flags = 3;
+
+  // Model + prompt version for audit trails, e.g. "mock" or
+  // "qwen2.5-0.5b-instruct/guard_system_v1".
+  string model_id = 4;
+
+  // Wall-clock inference time, microseconds.
+  uint64 inference_micros = 5;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  bool ready = 1;
+  string model_id = 2;
+}

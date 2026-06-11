@@ -1,0 +1,11 @@
+# Build artifacts
+/target/
+
+# Local model weights are never committed (size, licensing, provenance).
+*.gguf
+
+# Editor noise
+.idea/
+.vscode/
+*.swp
+.DS_Store
