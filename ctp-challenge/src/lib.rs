@@ -10,3 +10,8 @@
 
 pub mod registry;
 pub mod rules;
+
+pub use registry::ChallengeLayer;
+pub use rules::data_driven::DataDrivenRegexRule;
+pub use rules::encoding::{EncodingBypassRule, EncodingLimits};
+pub use rules::homoglyph::UnicodeHomoglyphRule;

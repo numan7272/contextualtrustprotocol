@@ -195,6 +195,7 @@ dependencies = [
  "serde",
  "tracing",
  "unicode-security",
+ "uuid",
 ]
 
 [[package]]
