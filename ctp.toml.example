@@ -41,6 +41,7 @@ prompt_version = "guard_system_v1"
 [kernel]
 anomaly_threshold = 3.0  # cumulative session score that blocks the session
 anomaly_decay = 0.5      # per-turn multiplicative decay, within (0, 1]
+anomaly_floor = 0.5      # decay can't push a tainted session below this; within [0, threshold)
 flag_weight = 0.5        # score per advisory flag
 max_sessions = 10000
 

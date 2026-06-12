@@ -20,11 +20,13 @@
 
 use std::fmt;
 use std::marker::PhantomData;
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::CtpError;
+use crate::traits::{ChallengeScanner, GuardScanner};
 use crate::verdict::{Layer, LayerReport, Verdict};
 
 /// Dataflow direction relative to the model context.
@@ -166,16 +168,69 @@ impl Payload<Tainted> {
         }
     }
 
+    /// Run Layer 1 over this payload and promote it on PASS.
+    ///
+    /// This is the only public way to obtain a `Payload<Challenged>`: it
+    /// runs the real scanner, builds the (crate-private) report from its
+    /// findings, and returns both the promoted payload and the report for
+    /// audit. On a blocking finding it returns [`CtpError::Blocked`] and the
+    /// payload is consumed — it cannot advance.
+    pub fn challenge<S: ChallengeScanner + ?Sized>(
+        self,
+        scanner: &S,
+        session_id: Uuid,
+    ) -> Result<(Payload<Challenged>, LayerReport), CtpError> {
+        let start = Instant::now();
+        let findings = scanner.challenge_findings(self.bytes());
+        let report = LayerReport::new(
+            self.id(),
+            Layer::Challenge,
+            session_id,
+            findings,
+            start.elapsed(),
+        );
+        let promoted = self.into_challenged(&report)?;
+        Ok((promoted, report))
+    }
+
     /// Promote with a passing Layer-1 report bound to this payload.
-    pub fn into_challenged(self, report: &LayerReport) -> Result<Payload<Challenged>, CtpError> {
+    /// Crate-private: the public entry point is [`Payload::challenge`].
+    pub(crate) fn into_challenged(
+        self,
+        report: &LayerReport,
+    ) -> Result<Payload<Challenged>, CtpError> {
         self.validate_report(report, Layer::Challenge)?;
         Ok(self.rebind())
     }
 }
 
 impl Payload<Challenged> {
+    /// Run Layer 2 (guard) over this payload and promote it to `Vetted` on
+    /// PASS. The only public way to obtain a `Payload<Vetted>`; like
+    /// [`Payload::challenge`] it runs the real scanner and is fail-closed.
+    pub async fn guard<S: GuardScanner + ?Sized>(
+        self,
+        scanner: &S,
+        session_id: Uuid,
+    ) -> Result<(Payload<Vetted>, LayerReport), CtpError> {
+        let start = Instant::now();
+        let findings = scanner
+            .guard_findings(self.bytes(), self.direction(), session_id)
+            .await?;
+        let report = LayerReport::new(
+            self.id(),
+            Layer::Guard,
+            session_id,
+            findings,
+            start.elapsed(),
+        );
+        let promoted = self.into_vetted(&report)?;
+        Ok((promoted, report))
+    }
+
     /// Promote with a passing Layer-2 (guard) report bound to this payload.
-    pub fn into_vetted(self, report: &LayerReport) -> Result<Payload<Vetted>, CtpError> {
+    /// Crate-private: the public entry point is [`Payload::guard`].
+    pub(crate) fn into_vetted(self, report: &LayerReport) -> Result<Payload<Vetted>, CtpError> {
         self.validate_report(report, Layer::Guard)?;
         Ok(self.rebind())
     }

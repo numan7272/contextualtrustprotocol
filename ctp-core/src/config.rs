@@ -81,6 +81,11 @@ impl CtpConfig {
         if k.flag_weight < 0.0 {
             return Err(CtpError::Config("kernel.flag_weight must be >= 0".into()));
         }
+        if !(k.anomaly_floor >= 0.0 && k.anomaly_floor < k.anomaly_threshold) {
+            return Err(CtpError::Config(
+                "kernel.anomaly_floor must be within [0, anomaly_threshold)".into(),
+            ));
+        }
         Ok(())
     }
 }
@@ -171,6 +176,13 @@ pub struct KernelConfig {
     /// within (0, 1]. Prevents long benign sessions from self-DoS.
     #[serde(default = "default_anomaly_decay")]
     pub anomaly_decay: f64,
+    /// Residual-suspicion floor: once a session has ever raised an anomaly,
+    /// decay cannot drive its score below this value. Without it, a long
+    /// benign stretch decays the score to ~0 and a later attack starts from
+    /// a clean slate — the decay becomes a self-bypass. Must be within
+    /// `[0, anomaly_threshold)`.
+    #[serde(default = "default_anomaly_floor")]
+    pub anomaly_floor: f64,
     /// Score added per advisory flag (challenge flag or guard flag).
     #[serde(default = "default_flag_weight")]
     pub flag_weight: f64,
@@ -251,6 +263,9 @@ fn default_anomaly_threshold() -> f64 {
     3.0
 }
 fn default_anomaly_decay() -> f64 {
+    0.5
+}
+fn default_anomaly_floor() -> f64 {
     0.5
 }
 fn default_flag_weight() -> f64 {

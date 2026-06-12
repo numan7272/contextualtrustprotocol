@@ -26,7 +26,8 @@ pub use config::{
 pub use error::{CtpError, ToolFailureClass};
 pub use payload::{Challenged, Direction, Payload, PayloadId, Tainted, TrustState, Vetted};
 pub use traits::{
-    GuardCheck, GuardRequest, GuardVerdict, Rule, ToolContext, ToolExecutor, ToolOutput,
+    ChallengeScanner, GuardCheck, GuardRequest, GuardScanner, GuardVerdict, Rule, ToolContext,
+    ToolExecutor, ToolOutput,
 };
 pub use verdict::{
     Decision, Finding, FindingDisposition, Layer, LayerReport, RuleResult, Severity, Verdict,

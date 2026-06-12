@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::error::CtpError;
 use crate::payload::Direction;
-use crate::verdict::{RuleResult, Verdict};
+use crate::verdict::{Finding, RuleResult, Verdict};
 
 /// A single Layer-1 heuristic. Implementations must be cheap (the whole
 /// layer targets <2ms p99 at 32 KiB), allocation-light and side-effect
@@ -96,4 +96,29 @@ pub struct GuardVerdict {
 #[async_trait]
 pub trait GuardCheck: Send + Sync {
     async fn classify(&self, request: GuardRequest) -> Result<GuardVerdict, CtpError>;
+}
+
+/// Layer 1 as a payload-level scanner. Implemented by the challenge layer;
+/// consumed only by [`crate::Payload::challenge`], which turns the returned
+/// findings into a bound `LayerReport`. This is the encapsulated path that
+/// makes the challenge layer the sole practical producer of Layer-1 reports.
+pub trait ChallengeScanner: Send + Sync {
+    /// Inspect a whole payload and return all findings (blocking and
+    /// advisory). Sync, pure CPU — see [`Rule`].
+    fn challenge_findings(&self, payload: &[u8]) -> Vec<Finding>;
+}
+
+/// Layer 2 as a payload-level scanner. Implemented by the kernel, which
+/// fans a payload out into windowed, parallel, time-bounded [`GuardCheck`]
+/// calls and aggregates the result. Consumed only by
+/// [`crate::Payload::guard`]. Errors are fail-closed: the caller maps them
+/// to BLOCK.
+#[async_trait]
+pub trait GuardScanner: Send + Sync {
+    async fn guard_findings(
+        &self,
+        payload: &[u8],
+        direction: Direction,
+        session_id: Uuid,
+    ) -> Result<Vec<Finding>, CtpError>;
 }

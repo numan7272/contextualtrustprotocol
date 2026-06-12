@@ -9,13 +9,13 @@ publish = false
 
 [dependencies]
 ctp-core.workspace = true
-ctp-challenge.workspace = true
 async-trait.workspace = true
 tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
 tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+ctp-challenge.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [lints]

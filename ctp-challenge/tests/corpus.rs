@@ -8,8 +8,10 @@
 //!   which is worse than having no Layer 1.
 
 use ctp_challenge::ChallengeLayer;
-use ctp_core::{ChallengeConfig, Direction, Payload, RegexRuleSpec, RuleAction, Severity, Verdict};
-use uuid::Uuid;
+use ctp_core::{
+    ChallengeConfig, ChallengeScanner, FindingDisposition, RegexRuleSpec, RuleAction, Severity,
+    Verdict,
+};
 
 fn production_like_layer() -> ChallengeLayer {
     let config = ChallengeConfig {
@@ -35,8 +37,15 @@ fn production_like_layer() -> ChallengeLayer {
 }
 
 fn scan(layer: &ChallengeLayer, payload: &[u8]) -> Verdict {
-    let p = Payload::new(payload.to_vec(), Direction::Inbound);
-    layer.scan(&p, Uuid::new_v4()).verdict()
+    let findings = layer.challenge_findings(payload);
+    if findings
+        .iter()
+        .any(|f| f.disposition == FindingDisposition::Blocking)
+    {
+        Verdict::Block
+    } else {
+        Verdict::Pass
+    }
 }
 
 fn b64(data: &[u8]) -> String {

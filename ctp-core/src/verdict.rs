@@ -153,7 +153,11 @@ pub struct LayerReport {
 }
 
 impl LayerReport {
-    pub fn new(
+    /// Construct a report from findings. Crate-private on purpose: the only
+    /// public paths to a `LayerReport` are [`crate::Payload::challenge`] and
+    /// [`crate::Payload::guard`], which run a real scanner first. This keeps
+    /// `LayerReport` from being fabricated to forge a passing verdict.
+    pub(crate) fn new(
         payload_id: PayloadId,
         layer: Layer,
         session_id: Uuid,

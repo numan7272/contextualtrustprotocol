@@ -17,8 +17,9 @@
 use std::time::{Duration, Instant};
 
 use ctp_challenge::ChallengeLayer;
-use ctp_core::{ChallengeConfig, Direction, Payload, RegexRuleSpec, RuleAction, Severity, Verdict};
-use uuid::Uuid;
+use ctp_core::{
+    ChallengeConfig, ChallengeScanner, FindingDisposition, RegexRuleSpec, RuleAction, Severity,
+};
 
 fn layer() -> ChallengeLayer {
     let config = ChallengeConfig {
@@ -78,10 +79,11 @@ fn p99_latency_within_budget_at_32kib() {
     // The fixture must be representative of *scanned* traffic: it has to
     // survive scanning without blocking, or we are measuring the cost of
     // the wrong outcome.
-    let probe = Payload::new(fixture.clone(), Direction::Inbound);
-    assert_eq!(
-        layer.scan(&probe, Uuid::new_v4()).verdict(),
-        Verdict::Pass,
+    let probe = layer.challenge_findings(&fixture);
+    assert!(
+        !probe
+            .iter()
+            .any(|f| f.disposition == FindingDisposition::Blocking),
         "latency fixture must scan clean"
     );
 
@@ -94,15 +96,13 @@ fn p99_latency_within_budget_at_32kib() {
     };
 
     for _ in 0..warmup {
-        let p = Payload::new(fixture.clone(), Direction::Inbound);
-        std::hint::black_box(layer.scan(&p, Uuid::new_v4()));
+        std::hint::black_box(layer.challenge_findings(&fixture));
     }
 
     let mut samples: Vec<Duration> = Vec::with_capacity(runs);
     for _ in 0..runs {
-        let p = Payload::new(fixture.clone(), Direction::Inbound);
         let start = Instant::now();
-        std::hint::black_box(layer.scan(&p, Uuid::new_v4()));
+        std::hint::black_box(layer.challenge_findings(&fixture));
         samples.push(start.elapsed());
     }
     samples.sort_unstable();
