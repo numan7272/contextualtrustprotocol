@@ -243,18 +243,19 @@ mod llama_backend {
             let mut out_bytes: Vec<u8> = Vec::new();
             let mut n_cur = batch.n_tokens();
             for _ in 0..MAX_NEW_TOKENS {
+                // SECURITY/correctness: `sample` already accepts the token into
+                // the chain. In this llama.cpp, `llama_sampler_sample` calls
+                // `llama_sampler_accept` internally, which advances the grammar.
+                // We must NOT accept again — a second accept advances the
+                // grammar twice per token, runs its parse stacks off the end,
+                // and the next apply aborts with GGML_ASSERT(!stacks.empty()), a
+                // hard C++ abort. (The grammar file itself is valid: verified
+                // standalone in llama-cli with the same model.) This was the
+                // real cause of the crash, not the grammar.
                 let token = sampler.sample(&ctx, batch.n_tokens() - 1);
-                // SECURITY/correctness: check end-of-generation and break
-                // BEFORE accepting into the grammar. llama.cpp's
-                // `llama_grammar_accept_impl` GGML_ABORTs ("fatal error") if it
-                // accepts the EOG token while the grammar is not in a terminal
-                // state — a hard C++ abort that cannot be caught from Rust. The
-                // grammar permits EOG only once the verdict JSON is complete;
-                // we stop there and never feed EOG to the grammar sampler.
                 if self.model.is_eog_token(token) {
                     break;
                 }
-                sampler.accept(token);
                 // 64-byte buffer is far larger than any single verdict-JSON
                 // token; `false` = do not render special tokens as text.
                 let piece = self

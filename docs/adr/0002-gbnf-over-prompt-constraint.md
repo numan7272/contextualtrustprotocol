@@ -37,20 +37,28 @@ in the language.
   the mock and the in-tree acceptor could not:
   - *Compile-time:* `LlamaSampler::grammar` returns a `Result` that was chained
     as if infallible (the first real compile caught it); fixed fail-closed.
-  - *Run-time:* against a real model on CPU, the grammar tripped a hard C++
-    abort inside llama.cpp — `GGML_ASSERT(!stacks.empty())`. Root causes, read
-    from the bundled llama.cpp source: the decode loop fed the end-of-generation
-    token to the grammar sampler (`accept_impl` `GGML_ABORT`s on EOG in a
-    non-terminal state), and the grammar used `?`/`*`/`+`/`()` operators whose
-    desugaring into synthesized rules is an init edge-case. Fixed by checking
-    EOG before accept and rewriting the grammar in operator-free right-recursive
-    form (same language).
-- **Negative (scope of the acceptor):** the in-tree NFA acceptor proves
-  *language membership* — that prose is not a sentence of the grammar. It does
-  **not** model llama.cpp's stateful sampler (EOG handling, operator
-  desugaring, tokenizer interaction), so it cannot catch a runtime abort like
-  the one above. "The acceptor passed" and "llama.cpp runs it safely" are
-  different claims; only the former is covered by the offline suite.
-- Full runtime behavior against a real GGUF model is still being validated by
-  the project owner; the fixes above are reasoned from the llama.cpp source and
-  compile-verified, not yet proven crash-free end-to-end in this repository.
+  - *Run-time:* against a real model on CPU, the guard hard-aborted inside
+    llama.cpp — `GGML_ASSERT(!stacks.empty())`. The real cause was an
+    integration bug, **not** the grammar: in this llama.cpp, `llama_sampler_
+    sample` accepts the token internally (it calls `llama_sampler_accept`), so
+    the decode loop's *additional* explicit `accept` advanced the grammar twice
+    per token, ran its parse stacks off the end, and the next apply asserted.
+    Fixed by removing the redundant accept. The grammar file itself is valid —
+    verified standalone in `llama-cli` with the same model.
+  - *Two wrong diagnoses first.* Before finding the double-accept, the crash
+    was misattributed (from reading the source) to EOG-into-grammar and to
+    `?`/`*`/`+`/`()` operator desugaring; neither was the cause. The grammar was
+    rewritten to operator-free right-recursive form anyway (same language, kept
+    because it is the form since verified in `llama-cli`). The lesson is in the
+    next bullet.
+- **Negative (scope of the acceptor, and of source-reading):** the in-tree NFA
+  acceptor proves *language membership* — prose is not a sentence of the
+  grammar. It does **not** model llama.cpp's stateful sampler, and reading the
+  library source produced two confident-but-wrong root causes. What actually
+  located the bug was empirical isolation (the same grammar in `llama-cli`).
+  "The acceptor passed" and "I traced the source" are both weaker than "it ran";
+  only the offline acceptor is in the suite, and it cannot catch integration
+  bugs like this one.
+- The double-accept fix is confirmed against the symptom mechanistically and
+  compile-verified, but has **not** itself been re-run against a real model in
+  this repository — that re-test is the project owner's.
