@@ -106,6 +106,16 @@ pub async fn serve(config: &CtpConfig) -> Result<(), CtpError> {
         "ctp-guard listening on unix socket"
     );
 
+    // Signal readiness and arm the systemd watchdog. Both are no-ops outside
+    // systemd (NOTIFY_SOCKET / WATCHDOG_USEC unset). The watchdog is a coarse
+    // process-liveness check: a fully wedged runtime stops pinging and systemd
+    // SIGKILLs + restarts it. It is NOT a per-request cancel — a single hung
+    // classify is the client's authoritative timeout's job; a native inference
+    // call cannot be cancelled mid-flight, so "restart the wedged process" is
+    // the best-effort guard-side cancel.
+    let _ = sd_notify::notify(&[sd_notify::NotifyState::Ready]);
+    spawn_watchdog();
+
     let incoming = UnixListenerStream::new(listener);
     let result = Server::builder()
         .add_service(GuardServiceServer::new(server))
@@ -115,6 +125,21 @@ pub async fn serve(config: &CtpConfig) -> Result<(), CtpError> {
     // Best-effort cleanup so a restart can re-bind the path.
     let _ = std::fs::remove_file(socket_path);
     result.map_err(|e| CtpError::Config(format!("guard server: {e}")))
+}
+
+/// If systemd set a watchdog interval, ping it at half that period. No-op
+/// when `WATCHDOG_USEC` is unset (not under systemd, or no `WatchdogSec=`).
+fn spawn_watchdog() {
+    if let Some(timeout) = sd_notify::watchdog_enabled() {
+        let period = timeout / 2;
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(period);
+            loop {
+                tick.tick().await;
+                let _ = sd_notify::notify(&[sd_notify::NotifyState::Watchdog]);
+            }
+        });
+    }
 }
 
 fn prepare_socket_path(path: &Path) -> Result<(), CtpError> {

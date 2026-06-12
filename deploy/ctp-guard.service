@@ -1,0 +1,127 @@
+# ctp-guard.service — the air-gapped Layer-2 guard process.
+#
+# Threat being contained: the guard parses attacker-influenced payloads (raw
+# tool results, external data) with a language model. If the guard process is
+# ever compromised through that surface, this sandbox is the wall that keeps a
+# compromised guard from becoming a compromised host. Every directive below is
+# annotated with the specific capability it removes.
+#
+# This is the CORRECTED hardening from the Step-1 review, NOT the original
+# spec draft: `SystemCallFilter=@basic-io @file-system` does not boot, because
+# socket/bind/listen/accept4 live in @network-io (even for AF_UNIX) and the
+# Tokio runtime needs @process and futex. The working set is @system-service
+# minus the privileged groups, plus an explicit AF_UNIX-only address family.
+
+[Unit]
+Description=CTP Guard (Layer 2 contextual-integrity classifier)
+Documentation=https://github.com/numan7272/contextualtrustprotocol
+# Ordered after the socket dir exists; no network target dependency on purpose.
+After=local-fs.target
+# A guard crash-looping on a poisoned input must not burn the host: more than
+# 5 restarts in 30 s stops the unit (operator must intervene). These two keys
+# live in [Unit], not [Service], in modern systemd.
+StartLimitIntervalSec=30s
+StartLimitBurst=5
+
+[Service]
+Type=notify
+# Type=notify + WatchdogSec: the guard must ping the watchdog each interval.
+# A hung inference loop (the guard-side best-effort cancel for the 500 ms
+# client timeout) stops pinging; systemd then SIGKILLs and restarts it, so a
+# wedged guard becomes a fast restart instead of a silent black hole.
+WatchdogSec=10s
+
+ExecStart=/usr/local/bin/ctp-guard /etc/ctp/ctp.toml
+
+# --- Restart policy: a guard that dies must come back, fast --------------
+# A crash (panic=abort in the release profile) or watchdog kill restarts
+# promptly. Without this, a single crash disables Layer 2 — and the
+# orchestrator fails closed to BLOCK on every call, a self-inflicted outage.
+Restart=always
+RestartSec=1s
+
+# --- Identity: no privilege to lose --------------------------------------
+# DynamicUser gives a throwaway uid/gid per start. Closes: privilege
+# escalation and persistence — a compromised guard owns nothing on disk and
+# no stable identity to pivot from.
+DynamicUser=yes
+
+# --- Network: the "air gap" is enforced here, not in config --------------
+# PrivateNetwork puts the guard in an empty network namespace: loopback only,
+# no real interfaces. Closes: exfiltration and C2 — even a fully compromised
+# guard has nowhere to send stolen payload data. This is why Layer 2 can be
+# trusted with raw bytes: it physically cannot phone home.
+PrivateNetwork=yes
+# Belt and suspenders: even the syscalls to create a non-UNIX socket are
+# refused, so AF_INET/AF_INET6/AF_PACKET cannot be opened at all. Closes:
+# any attempt to reach the network stack that survives PrivateNetwork.
+RestrictAddressFamilies=AF_UNIX
+
+# --- Filesystem: read-only world, one writable hole for the socket -------
+# The entire filesystem is read-only. Closes: tampering with binaries,
+# configs, or dropping a payload to disk for a later stage.
+ReadOnlyPaths=/
+# RuntimeDirectory carves out /run/ctp (0700, owned by the dynamic user,
+# auto-created at start and removed at stop) — the ONLY writable path, just
+# big enough to hold the listening socket. Must match guard.socket_path
+# (/run/ctp/guard.sock). Closes: the contradiction between ReadOnlyPaths=/ and
+# needing to bind a socket, without granting broad write access.
+RuntimeDirectory=ctp
+RuntimeDirectoryMode=0700
+# Hide the rest of the filesystem entirely where possible. Closes: reading
+# other services' secrets, /etc, other users' data.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+# The model weights are mounted read-only from outside the unit; the guard
+# never needs to write them. (Operator sets the actual path.)
+# BindReadOnlyPaths=/var/lib/ctp/models
+
+# --- Kernel & device surface: shrink what a compromise can touch ---------
+PrivateDevices=yes
+# Closes: loading a malicious kernel module or rootkit.
+ProtectKernelModules=yes
+# Closes: tampering with kernel tunables via /proc/sys, /sys.
+ProtectKernelTunables=yes
+ProtectKernelLogs=yes
+# Closes: escaping the unit's resource limits via cgroup edits.
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+# Closes: privilege escalation via setuid/setgid binaries.
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+# Closes: gaining capabilities; the guard needs none.
+CapabilityBoundingSet=
+AmbientCapabilities=
+# Closes: writable+executable memory, a common exploit primitive (JIT spray,
+# shellcode staging). The model runtime must tolerate W^X.
+MemoryDenyWriteExecute=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+
+# --- System call surface ------------------------------------------------
+# @system-service is the maintained "normal service" set: it INCLUDES the
+# socket and process/futex calls Tokio and the UDS server need, unlike the
+# original @basic-io @file-system draft which omits them and fails to boot.
+SystemCallFilter=@system-service
+# Everything outside the set is refused with EPERM (not SIGSYS), so a probe
+# gets an error instead of a crash that could mask intent.
+SystemCallErrorNumber=EPERM
+# Closes: syscalls from foreign architectures used to bypass the x86_64
+# filter via a 32-bit or compat entry point.
+SystemCallArchitectures=native
+
+# --- Resources: a poisoned input must not OOM or fork-bomb the host ------
+# Hard memory ceiling. Closes: a crafted payload driving the model to
+# exhaust host RAM (a denial-of-service against everything else on the box).
+MemoryMax=4G
+# The guard is single-purpose; it never spawns helpers. Closes: fork bombs
+# and spawning a shell or downloader.
+TasksMax=64
+LimitNOFILE=1024
+
+[Install]
+WantedBy=multi-user.target

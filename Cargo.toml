@@ -54,6 +54,9 @@ percent-encoding = "=2.3.2"
 
 # Misc
 uuid = { version = "=1.23.3", features = ["v4", "serde"] }
+# systemd readiness + watchdog notifications (pure Rust, no native deps;
+# no-op when not run under systemd)
+sd-notify = "=0.5.0"
 
 # Guard inference backend (feature-gated; never built by default)
 llama-cpp-2 = "=0.1.146"
