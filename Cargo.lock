@@ -256,6 +256,7 @@ dependencies = [
  "async-trait",
  "ctp-challenge",
  "ctp-core",
+ "ctp-guard",
  "ctp-kernel",
  "hyper-util",
  "metrics",

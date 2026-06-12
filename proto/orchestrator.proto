@@ -1,0 +1,70 @@
+// CTP orchestrator gateway: the external surface callers use to evaluate a
+// payload through the full pipeline (challenge -> guard -> ledger) and
+// receive a verdict. This service performs NO tool execution; it returns a
+// decision about a given payload in a given direction. Tool wrapping is the
+// embedded library mode (KernelWrapper), not this RPC.
+//
+// As with the guard contract, every UNSPECIFIED enum value is invalid and
+// MUST be treated as BLOCK / rejected — fail-closed at the protocol level.
+
+syntax = "proto3";
+
+package ctp.orchestrator.v1;
+
+service OrchestratorService {
+  // Evaluate one payload through the pipeline and return a decision.
+  rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
+
+  // Liveness/readiness: pipeline assembled, guard reachable contract-wise.
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+enum Direction {
+  DIRECTION_UNSPECIFIED = 0;
+  DIRECTION_INBOUND = 1;
+  DIRECTION_OUTBOUND = 2;
+}
+
+enum Verdict {
+  VERDICT_UNSPECIFIED = 0;
+  VERDICT_PASS = 1;
+  VERDICT_BLOCK = 2;
+}
+
+message EvaluateRequest {
+  // Raw payload to evaluate (tool arguments for OUTBOUND, tool result for
+  // INBOUND). The orchestrator windows it internally for the guard.
+  bytes payload = 1;
+  Direction direction = 2;
+  // Tool the payload belongs to, for policy context. May be empty.
+  string tool_name = 3;
+  // Session for multi-turn anomaly correlation. Empty => a fresh session.
+  string session_id = 4;
+}
+
+// Audit finding. `reason` is operator-facing text and, by policy, never
+// embeds raw guard output.
+message Finding {
+  string source = 1;
+  string reason = 2;
+  string severity = 3;
+  string disposition = 4;
+}
+
+message EvaluateResponse {
+  Verdict verdict = 1;
+  // The layer that decided (for blocks, the layer that fired).
+  string layer = 2;
+  repeated Finding findings = 3;
+  uint64 elapsed_micros = 4;
+  // Echoed/assigned session id for correlation.
+  string session_id = 5;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  bool ready = 1;
+  // Number of active challenge rules.
+  uint32 active_rules = 2;
+}
