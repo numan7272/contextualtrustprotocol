@@ -9,14 +9,25 @@
 # The accepted language is exactly:
 #   {"verdict":"PASS"|"BLOCK","confidence":<0.d|0.dd|1.d|1.dd>,"flags":[<"snake"...>]}
 #
+# Written WITHOUT the `?`/`*`/`+`/`()` operators on purpose. llama.cpp's GBNF
+# parser supports them, but it desugars each into synthesized helper rules,
+# and that desugaring is where init edge-cases live (an empty initial stack
+# trips GGML_ASSERT(!stacks.empty()) at apply time, a hard C++ abort that
+# cannot be caught from Rust). Plain right-recursion produces no synthesized
+# rules and is the most widely-exercised GBNF form. The language is identical.
+#
 # Whitespace is intentionally NOT permitted: the model emits compact JSON.
 # The downstream strict parser (parse.rs) is whitespace-tolerant and re-
 # validates regardless, so this grammar can be the tighter of the two.
 
-root       ::= "{\"verdict\":" verdict ",\"confidence\":" confidence ",\"flags\":" flags "}"
-verdict    ::= "\"PASS\"" | "\"BLOCK\""
-confidence ::= ( "0" | "1" ) "." digit digit?
-flags      ::= "[]" | "[" flag ( "," flag )* "]"
-flag       ::= "\"" flagchar+ "\""
-flagchar   ::= [a-z0-9_]
-digit      ::= [0-9]
+root        ::= "{\"verdict\":" verdict ",\"confidence\":" confidence ",\"flags\":" flags "}"
+verdict     ::= "\"PASS\"" | "\"BLOCK\""
+confidence  ::= onenine "." digits
+onenine     ::= "0" | "1"
+digits      ::= digit | digit digit
+digit       ::= [0-9]
+flags       ::= "[]" | "[" flaglist "]"
+flaglist    ::= flag | flag "," flaglist
+flag        ::= "\"" flagchars "\""
+flagchars   ::= flagchar | flagchar flagchars
+flagchar    ::= [a-z0-9_]

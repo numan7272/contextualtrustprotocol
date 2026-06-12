@@ -33,10 +33,24 @@ in the language.
   confidently wrong `PASS`. Constrained decoding solves smuggling, not accuracy.
 - **Negative (deviation):** the backend that actually applies the grammar
   (`llama-cpp-2`, feature `llama`) builds llama.cpp natively and is not part of
-  the default hermetic suite. It now **compiles cleanly against
-  llama-cpp-2 0.1.146** (verified on a host with libclang + cmake): the first
-  real compile caught a genuine API mismatch — `LlamaSampler::grammar` returns
-  a `Result` that was being chained as if infallible — now fixed fail-closed.
-  But compiling is not running: the loaded-model inference path has **not been
-  exercised against a real GGUF model**, so end-to-end runtime behavior remains
-  unverified. Every tested path uses a deterministic keyword-matching mock.
+  the default hermetic suite. Exercising it surfaced two classes of defect that
+  the mock and the in-tree acceptor could not:
+  - *Compile-time:* `LlamaSampler::grammar` returns a `Result` that was chained
+    as if infallible (the first real compile caught it); fixed fail-closed.
+  - *Run-time:* against a real model on CPU, the grammar tripped a hard C++
+    abort inside llama.cpp — `GGML_ASSERT(!stacks.empty())`. Root causes, read
+    from the bundled llama.cpp source: the decode loop fed the end-of-generation
+    token to the grammar sampler (`accept_impl` `GGML_ABORT`s on EOG in a
+    non-terminal state), and the grammar used `?`/`*`/`+`/`()` operators whose
+    desugaring into synthesized rules is an init edge-case. Fixed by checking
+    EOG before accept and rewriting the grammar in operator-free right-recursive
+    form (same language).
+- **Negative (scope of the acceptor):** the in-tree NFA acceptor proves
+  *language membership* — that prose is not a sentence of the grammar. It does
+  **not** model llama.cpp's stateful sampler (EOG handling, operator
+  desugaring, tokenizer interaction), so it cannot catch a runtime abort like
+  the one above. "The acceptor passed" and "llama.cpp runs it safely" are
+  different claims; only the former is covered by the offline suite.
+- Full runtime behavior against a real GGUF model is still being validated by
+  the project owner; the fixes above are reasoned from the llama.cpp source and
+  compile-verified, not yet proven crash-free end-to-end in this repository.

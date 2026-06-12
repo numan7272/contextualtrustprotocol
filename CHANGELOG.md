@@ -11,7 +11,21 @@ those revisions are noted and recorded in full as ADRs (`docs/adr/`).
 
 ## [Unreleased]
 
-### Fixed (post-Step-8)
+### Fixed (post-Step-8, runtime)
+- The GBNF grammar tripped a hard C++ abort in llama.cpp at inference time
+  against a real model on CPU (`GGML_ASSERT(!stacks.empty())`). Two causes,
+  read from the bundled llama.cpp source: (1) the decode loop accepted the
+  end-of-generation token into the grammar sampler, which `GGML_ABORT`s when
+  EOG is accepted in a non-terminal state — fixed by checking EOG before
+  accept; (2) the grammar used `?`/`*`/`+`/`()` operators whose desugaring into
+  synthesized rules is an init edge-case — rewritten in operator-free
+  right-recursive form (identical language; the in-tree acceptor still
+  validates it). The acceptor proves language membership, not llama.cpp runtime
+  safety — a scope limit now stated in ADR 0002. Also raised the example
+  config's guard `timeout_ms` to 10000 for CPU testing (production/GPU should
+  lower it back toward ~500).
+
+### Fixed (post-Step-8, compile)
 - The `llama` guard backend (ADR 0002's documented deviation) now compiles
   against `llama-cpp-2 0.1.146`. The first real compile — on a host with
   libclang + cmake — caught a genuine API mismatch: `LlamaSampler::grammar`

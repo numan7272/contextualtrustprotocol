@@ -32,7 +32,12 @@ description = "Role-marker lines inside data payloads"
 backend = "mock"
 socket_path = "/run/ctp/guard.sock"
 # model_path = "/var/lib/ctp/models/guard.gguf"   # required for "llama"
-timeout_ms = 500            # client-side, authoritative, fail-closed
+# Client-side, authoritative, fail-closed budget per window. 500 ms suits a
+# small model on a GPU; CPU-only inference of a 0.5B-class model needs seconds
+# per verdict, so testing on CPU uses 10000. Lower this back toward ~500 on
+# accelerated hardware — a loose timeout widens the window a slow/hung guard
+# stays in the path before failing closed.
+timeout_ms = 10000
 max_window_bytes = 2048     # also enforced server-side
 window_overlap_bytes = 256  # windows overlap so boundary-split text is seen whole
 max_concurrent = 4
