@@ -87,8 +87,13 @@ cargo fmt --check
 ```
 
 The real guard backend (`--features llama` on `ctp-guard`) builds llama.cpp
-natively and is **not** exercised by the default suite; build it only on a host
-with the native toolchain and a GGUF model.
+natively (needs libclang + cmake) and is **not** part of the default hermetic
+suite. It compiles against llama-cpp-2 0.1.146, but its inference path has not
+been run against a real GGUF model — runtime behavior there is unverified.
+
+```sh
+LIBCLANG_PATH=/path/to/libclang cargo check -p ctp-guard --features llama
+```
 
 ## Running
 

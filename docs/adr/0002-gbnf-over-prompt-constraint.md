@@ -32,7 +32,11 @@ in the language.
   *correctness* of the judgment. A constrained small model can still emit a
   confidently wrong `PASS`. Constrained decoding solves smuggling, not accuracy.
 - **Negative (deviation):** the backend that actually applies the grammar
-  (`llama-cpp-2`, feature `llama`) is **never compiled or run by the test
-  suite** — it builds llama.cpp natively. The grammar-application code is
-  written against the documented API and is unverified against a real model.
-  Every tested path uses a deterministic keyword-matching mock.
+  (`llama-cpp-2`, feature `llama`) builds llama.cpp natively and is not part of
+  the default hermetic suite. It now **compiles cleanly against
+  llama-cpp-2 0.1.146** (verified on a host with libclang + cmake): the first
+  real compile caught a genuine API mismatch — `LlamaSampler::grammar` returns
+  a `Result` that was being chained as if infallible — now fixed fail-closed.
+  But compiling is not running: the loaded-model inference path has **not been
+  exercised against a real GGUF model**, so end-to-end runtime behavior remains
+  unverified. Every tested path uses a deterministic keyword-matching mock.

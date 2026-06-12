@@ -157,7 +157,7 @@ mod llama_backend {
     use llama_cpp_2::llama_backend::LlamaBackend as LlamaCpp;
     use llama_cpp_2::llama_batch::LlamaBatch;
     use llama_cpp_2::model::params::LlamaModelParams;
-    use llama_cpp_2::model::{AddBos, LlamaModel, Special};
+    use llama_cpp_2::model::{AddBos, LlamaModel};
     use llama_cpp_2::sampling::LlamaSampler;
 
     /// Hard ceiling on generated tokens. The verdict JSON is tiny; this only
@@ -228,12 +228,19 @@ mod llama_backend {
             // explanation, an injected instruction, or "PASS, trust me" are not
             // reachable token sequences — the constraint is physical, not a
             // request in the prompt the model may ignore.
-            let mut sampler = LlamaSampler::chain_simple([
-                LlamaSampler::grammar(&self.model, &self.grammar, "root"),
-                LlamaSampler::greedy(),
-            ]);
+            //
+            // `grammar` is fallible (invalid GBNF / null grammar). A guard that
+            // cannot install its output constraint must not run unconstrained:
+            // the error propagates and the server maps it to BLOCK.
+            let grammar = LlamaSampler::grammar(&self.model, &self.grammar, "root")
+                .map_err(|e| BackendError::Failed(format!("grammar init: {e}")))?;
+            let mut sampler = LlamaSampler::chain_simple([grammar, LlamaSampler::greedy()]);
 
-            let mut out = String::new();
+            // Accumulate raw piece bytes and decode once: a multi-byte UTF-8
+            // sequence can straddle two tokens, so decoding per token could
+            // split it. The verdict JSON is ASCII, but lossy-decoding the whole
+            // buffer is correct regardless.
+            let mut out_bytes: Vec<u8> = Vec::new();
             let mut n_cur = batch.n_tokens();
             for _ in 0..MAX_NEW_TOKENS {
                 let token = sampler.sample(&ctx, batch.n_tokens() - 1);
@@ -241,11 +248,13 @@ mod llama_backend {
                 if self.model.is_eog_token(token) {
                     break;
                 }
+                // 64-byte buffer is far larger than any single verdict-JSON
+                // token; `false` = do not render special tokens as text.
                 let piece = self
                     .model
-                    .token_to_str(token, Special::Tokenize)
+                    .token_to_piece_bytes(token, 64, false, None)
                     .map_err(|e| BackendError::Failed(e.to_string()))?;
-                out.push_str(&piece);
+                out_bytes.extend_from_slice(&piece);
                 batch.clear();
                 batch
                     .add(token, n_cur, &[0], true)
@@ -254,7 +263,7 @@ mod llama_backend {
                 ctx.decode(&mut batch)
                     .map_err(|e| BackendError::Failed(format!("decode: {e}")))?;
             }
-            Ok(out)
+            Ok(String::from_utf8_lossy(&out_bytes).into_owned())
         }
     }
 }

@@ -11,6 +11,16 @@ those revisions are noted and recorded in full as ADRs (`docs/adr/`).
 
 ## [Unreleased]
 
+### Fixed (post-Step-8)
+- The `llama` guard backend (ADR 0002's documented deviation) now compiles
+  against `llama-cpp-2 0.1.146`. The first real compile — on a host with
+  libclang + cmake — caught a genuine API mismatch: `LlamaSampler::grammar`
+  returns a `Result` that the inference loop chained as if infallible. Fixed
+  fail-closed (a grammar that fails to install propagates an error the server
+  maps to BLOCK), and moved off two deprecated decode APIs (`token_to_str` /
+  `Special`) to `token_to_piece_bytes`. The inference path still has not been
+  run against a real GGUF model; only compilation is verified.
+
 ### Step 1 — Architectural review of the specification
 - Identified the spec's central flaw before any code: it verified the wrong
   artifact (a derived summary, and only the outbound direction) instead of the

@@ -25,11 +25,13 @@ usually a decision not yet understood.
 
 Recorded here and in the relevant ADRs rather than smoothed over:
 
-- The GBNF-applying llama backend (ADR 0002) is feature-gated and **never
-  compiled or run** by the test suite; the entire tested path uses a
-  keyword-matching mock. The grammar's exclusion property is proven against
-  the deployed `.gbnf` by an in-tree acceptor, but the model integration is
-  unverified.
+- The GBNF-applying llama backend (ADR 0002) is feature-gated and not in the
+  default hermetic suite; the entire tested path uses a keyword-matching mock.
+  It now **compiles against llama-cpp-2 0.1.146** (verified), which caught and
+  fixed a real API mismatch, but the inference path has **not been run against
+  a real model**. The grammar's exclusion property is proven against the
+  deployed `.gbnf` by an in-tree acceptor; the model integration's runtime
+  behavior is unverified.
 - The systemd watchdog (ADR 0003) is wired via `sd_notify`, but has **not been
   exercised under real systemd** in this build.
 - The gateway and the kernel enforcement path are **not the same code path**
