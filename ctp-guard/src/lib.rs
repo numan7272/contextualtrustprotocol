@@ -99,6 +99,9 @@ pub async fn serve(config: &CtpConfig) -> Result<(), CtpError> {
     let socket_path = &config.guard.socket_path;
     prepare_socket_path(socket_path)?;
     let listener = UnixListener::bind(socket_path)?;
+    // SECURITY: lock the socket to the owner (0600). Only the orchestrator,
+    // running as the same user, may dial the guard — no other local user can
+    // reach Layer 2 to probe it or feed it crafted requests.
     std::fs::set_permissions(socket_path, std::fs::Permissions::from_mode(0o600))?;
     tracing::info!(
         socket = %socket_path.display(),

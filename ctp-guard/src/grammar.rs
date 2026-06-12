@@ -16,6 +16,10 @@
 use std::collections::{BTreeSet, HashMap};
 
 /// The GBNF grammar enforced on the guard model's output.
+// SECURITY: the deployed grammar IS the output-channel boundary. It is the
+// same file fed to the decoder (see inference.rs) and to the acceptor below
+// that proves prose is not in the language. Editing it widens what the guard
+// can physically say — treat changes as security-relevant.
 pub const VERDICT_GBNF: &str = include_str!("../grammar/verdict.gbnf");
 
 #[derive(Debug, Clone)]

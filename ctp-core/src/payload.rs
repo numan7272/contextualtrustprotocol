@@ -237,9 +237,11 @@ impl Payload<Challenged> {
 }
 
 impl Payload<Vetted> {
-    /// Hand the bytes onward to execution or model context. This is the
-    /// only consuming accessor in any state — unvetted data cannot be
-    /// released by construction.
+    /// Hand the bytes onward to execution or model context.
+    // SECURITY: `release` exists ONLY on `Vetted`, and `Vetted` is reachable
+    // only by passing both layers (see `challenge`/`guard`). So "bytes reach
+    // execution or model context" is gated by the type system — unvetted data
+    // cannot be released because there is no method to release it.
     pub fn release(self) -> Vec<u8> {
         self.bytes
     }

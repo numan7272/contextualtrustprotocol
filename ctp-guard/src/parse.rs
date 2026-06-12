@@ -68,6 +68,10 @@ fn flag_is_valid(flag: &str) -> bool {
 /// Parse and validate a raw guard response. Fail-closed: any `Err` means
 /// the caller must treat the verdict as BLOCK.
 pub fn parse_strict(raw: &str) -> Result<StrictVerdict, ParseError> {
+    // SECURITY: size-check BEFORE handing bytes to serde. A legitimate verdict
+    // is tens of bytes; anything large is already off-contract and could be a
+    // parser-pressure / allocation DoS. Rejecting first means the heavy path
+    // never runs on hostile input.
     if raw.len() > MAX_RAW_RESPONSE_BYTES {
         return Err(ParseError::TooLarge {
             len: raw.len(),

@@ -48,8 +48,11 @@ impl GuardServer {
     pub async fn classify_inner(&self, req: &GuardRequest) -> GuardVerdict {
         let start = Instant::now();
 
-        // Oversize windows are blocked WITHOUT inference: never hand an
-        // attacker-sized payload to the model.
+        // SECURITY: oversize windows block WITHOUT inference. An over-budget
+        // window is already off-contract, and feeding an attacker-sized blob
+        // to the model is both a DoS vector and a way to push the framing
+        // markers out of the model's effective attention. Reject before the
+        // model ever sees it.
         if req.window.len() > self.max_window_bytes {
             tracing::warn!(
                 window_len = req.window.len(),
@@ -81,8 +84,11 @@ impl GuardServer {
                 inference: start.elapsed(),
             },
             Err(e) => {
-                // Off-contract model output → BLOCK. The raw output is
-                // model-generated; it must not ride along in the verdict.
+                // SECURITY: off-contract model output → BLOCK, even though the
+                // guard itself produced it. The guard does not trust its own
+                // model: GBNF makes deviation unlikely, but a buggy/compromised
+                // backend that emits anything but a clean verdict must fail
+                // closed, and its raw text must not ride along in the verdict.
                 tracing::warn!(error = %e, "guard output violated contract; blocking");
                 self.block("guard_contract_violation", start.elapsed())
             }

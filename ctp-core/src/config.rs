@@ -17,6 +17,10 @@ use serde::{Deserialize, Serialize};
 use crate::error::CtpError;
 use crate::verdict::Severity;
 
+// SECURITY: `deny_unknown_fields` on every config struct turns a typo'd
+// security knob (`timeout_msec` for `timeout_ms`, `enabled_for_real`) into a
+// hard startup failure instead of a silently ignored line. A misspelled
+// hardening setting that quietly does nothing is the worst kind: it looks set.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CtpConfig {
@@ -81,6 +85,12 @@ impl CtpConfig {
         if k.flag_weight < 0.0 {
             return Err(CtpError::Config("kernel.flag_weight must be >= 0".into()));
         }
+        // SECURITY: the floor must sit below the threshold. A floor >=
+        // threshold would permanently block any session that ever raised one
+        // flag (residual suspicion becomes a death sentence); a negative floor
+        // would let decay erase suspicion entirely, which is the self-bypass
+        // the floor exists to prevent. Both extremes are config errors, not
+        // clamped, so the operator learns their policy is incoherent.
         if !(k.anomaly_floor >= 0.0 && k.anomaly_floor < k.anomaly_threshold) {
             return Err(CtpError::Config(
                 "kernel.anomaly_floor must be within [0, anomaly_threshold)".into(),

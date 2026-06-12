@@ -222,8 +222,12 @@ mod llama_backend {
             ctx.decode(&mut batch)
                 .map_err(|e| BackendError::Failed(format!("decode: {e}")))?;
 
-            // GBNF constrains the sampler: only tokens keeping the output on
-            // a path through the grammar are permitted.
+            // SECURITY: this is GBNF enforcement at the decoder. The grammar
+            // masks the logits each step so only tokens that keep the output on
+            // a path through `verdict.gbnf` can be sampled. Prose, an
+            // explanation, an injected instruction, or "PASS, trust me" are not
+            // reachable token sequences — the constraint is physical, not a
+            // request in the prompt the model may ignore.
             let mut sampler = LlamaSampler::chain_simple([
                 LlamaSampler::grammar(&self.model, &self.grammar, "root"),
                 LlamaSampler::greedy(),

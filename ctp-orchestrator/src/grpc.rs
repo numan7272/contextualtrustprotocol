@@ -84,7 +84,9 @@ impl OrchestratorService for GrpcGateway {
             Uuid::parse_str(&req.session_id).unwrap_or_else(|_| Uuid::new_v4())
         };
 
-        // An UNSPECIFIED/unknown direction is off-contract → BLOCK.
+        // SECURITY: an UNSPECIFIED/unknown direction is off-contract → BLOCK at
+        // the boundary, before the pipeline runs. A malformed request from an
+        // external caller fails closed rather than defaulting to a direction.
         let direction = match orchestrator_proto::Direction::try_from(req.direction) {
             Ok(orchestrator_proto::Direction::Inbound) => Direction::Inbound,
             Ok(orchestrator_proto::Direction::Outbound) => Direction::Outbound,

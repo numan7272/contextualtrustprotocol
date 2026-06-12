@@ -107,6 +107,11 @@ impl GuardScanner for GuardFanout {
                 session_id,
             };
             set.spawn(async move {
+                // SECURITY: timeout-to-block. A guard that hangs must not hang
+                // the pipeline — a slow or wedged guard becomes a typed
+                // GuardTimeout, which the aggregate turns into a Block. Silence
+                // is never read as consent. (This is a backstop; the guard
+                // client carries the authoritative timeout.)
                 match tokio::time::timeout(timeout, guard.classify(request)).await {
                     Ok(result) => result,
                     Err(_elapsed) => Err(CtpError::GuardTimeout {
@@ -226,8 +231,10 @@ impl<T: ToolExecutor> ToolExecutor for KernelWrapper<T> {
             turn,
         } = ctx;
 
-        // Deny-by-default: a tool absent from the allowlist, or present
-        // without `enabled = true`, never runs.
+        // SECURITY: deny-by-default. `tool_policy` returns a locked-down
+        // default for any tool not explicitly listed AND enabled, so the safe
+        // state is the absence of configuration — forgetting to list a tool
+        // denies it rather than exposing it.
         let policy = self.config.tool_policy(&tool_name);
         if !policy.enabled {
             return Err(CtpError::PolicyDenied {

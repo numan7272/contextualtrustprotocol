@@ -132,6 +132,10 @@ impl Orchestrator {
         direction: Direction,
         start: Instant,
     ) -> Decision {
+        // SECURITY: `evaluate` never returns Result — every failure funnels
+        // here and becomes a BLOCK Decision. A caller cannot accidentally treat
+        // a pipeline error as "no decision" and proceed; the only outcomes are
+        // PASS and BLOCK, and errors are BLOCK.
         let decision = err.to_block_decision(session_id, direction);
         tracing::info!(
             verdict = "block",

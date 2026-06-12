@@ -153,10 +153,13 @@ pub struct LayerReport {
 }
 
 impl LayerReport {
-    /// Construct a report from findings. Crate-private on purpose: the only
-    /// public paths to a `LayerReport` are [`crate::Payload::challenge`] and
-    /// [`crate::Payload::guard`], which run a real scanner first. This keeps
-    /// `LayerReport` from being fabricated to forge a passing verdict.
+    /// Construct a report from findings.
+    // SECURITY: crate-private on purpose. The only public paths to a
+    // `LayerReport` are `Payload::challenge` and `Payload::guard`, which run a
+    // real scanner first. If `new` were public, embedding code could fabricate
+    // an empty-findings (=PASS) report and promote an unscanned payload,
+    // skipping a layer. This closes that against ACCIDENT — not against
+    // malicious same-process code, which the guard's process boundary handles.
     pub(crate) fn new(
         payload_id: PayloadId,
         layer: Layer,

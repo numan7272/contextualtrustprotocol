@@ -125,7 +125,12 @@ impl AnomalyLedger {
             last_tick: tick,
         });
 
-        // Decay. The floor applies only once the session is tainted.
+        // SECURITY: the floor is the anti-self-bypass. Decay lets old
+        // suspicion fade, but `.max(p.floor)` stops a tainted session's score
+        // from decaying to ~0 over a long benign stretch. Without it an
+        // attacker raises one borderline flag, waits out the decay, and attacks
+        // again from a clean slate. The floor only arms after the first flag,
+        // so a wholly benign session is never penalized.
         if state.tainted {
             state.score = (state.score * p.decay).max(p.floor);
         } else {

@@ -85,9 +85,12 @@ pub enum CtpError {
     #[error("configuration error: {0}")]
     Config(String),
 
-    /// The wrapped tool itself failed before producing a result. The
-    /// attacker-influenceable inner error text lives in `audit_detail`,
-    /// excluded from `Display` — error messages are an inbound channel too.
+    /// The wrapped tool itself failed before producing a result.
+    // SECURITY: a tool's error message is attacker-influenceable and agent
+    // runtimes surface error Display back to the model — so it is an inbound
+    // injection channel just like the result body. The raw text is confined to
+    // `audit_detail` and kept out of `Display`; only the closed `class` enum
+    // may travel toward the model.
     #[error("tool '{tool}' execution failed ({class})")]
     ToolFailed {
         tool: String,
@@ -140,6 +143,11 @@ impl CtpError {
     /// Exhaustive match, no wildcard: every future variant must declare
     /// its provenance here or the crate does not compile.
     pub fn to_block_decision(&self, session_id: Uuid, direction: Direction) -> Decision {
+        // SECURITY: this is the single chokepoint every vetting path funnels
+        // errors through. The match is exhaustive with no wildcard so a new
+        // error variant cannot be added without deciding its provenance here —
+        // the compiler refuses to let a future error silently escape the
+        // fail-closed mapping and reach a PASS.
         let (layer, source, severity) = match self {
             CtpError::Blocked(decision) => return (**decision).clone(),
             CtpError::GuardUnavailable(_) => (Layer::Guard, "guard_unavailable", Severity::High),

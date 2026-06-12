@@ -83,10 +83,13 @@ fn from_proto(mut response: ClassifyResponse) -> Result<GuardVerdict, CtpError> 
     let verdict = match guard_proto::Verdict::try_from(response.verdict) {
         Ok(guard_proto::Verdict::Pass) => Verdict::Pass,
         Ok(guard_proto::Verdict::Block) => Verdict::Block,
-        // UNSPECIFIED or any unknown discriminant is off-contract.
+        // SECURITY: UNSPECIFIED or any unknown discriminant is off-contract →
+        // fail closed. The error string is a FIXED phrase: none of the
+        // guard-supplied fields (model_id, flags, message) is interpolated, so
+        // an off-contract response cannot become a text-injection vector into
+        // the audit log or a model-facing surface.
         _ => {
             metrics::record_guard_contract_violation();
-            // Fixed phrase: no guard-supplied field is interpolated.
             return Err(CtpError::GuardContractViolation(
                 "guard returned an unspecified or unknown verdict".into(),
             ));
@@ -110,7 +113,10 @@ impl GuardCheck for GuardClient {
         let mut client = self.client.clone();
 
         match tokio::time::timeout(self.timeout, client.classify(proto_request)).await {
-            // Client-authoritative timeout: a hung or slow guard is a BLOCK.
+            // SECURITY: client-authoritative timeout-to-block. This is the
+            // boundary that owns the deadline; a hung or slow guard becomes a
+            // typed GuardTimeout here, not a hang that stalls the agent and not
+            // a default-allow.
             Err(_elapsed) => {
                 metrics::record_guard_timeout();
                 tracing::warn!(
@@ -121,12 +127,15 @@ impl GuardCheck for GuardClient {
                     budget_ms: self.timeout.as_millis() as u64,
                 })
             }
-            // Transport / status error: socket gone, refused, reset, etc.
+            // SECURITY: every transport/status failure (socket gone, refused,
+            // reset, any gRPC error) maps to GuardUnavailable here at the I/O
+            // boundary — it never blubbers up as a raw io::Error that some
+            // outer layer might mishandle into a non-block. And the status
+            // MESSAGE is potentially guard-influenced text: it goes to tracing
+            // only; the returned error carries the structural status CODE, so a
+            // confused or compromised guard cannot smuggle text into a Decision.
             Ok(Err(status)) => {
                 metrics::record_guard_unavailable();
-                // The status MESSAGE is potentially guard-influenced text:
-                // it goes to tracing only. The returned error carries the
-                // structural status CODE, never the message.
                 tracing::warn!(
                     code = ?status.code(),
                     message = %status.message(),
