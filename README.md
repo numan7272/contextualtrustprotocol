@@ -75,6 +75,56 @@ payload can release its bytes, and the only public way to advance a payload is
 to run a real scanner. The error model is total and fail-closed. Every error
 maps to a BLOCK decision; there is no fallible path to PASS.
 
+### The pipeline decision
+
+How a payload moves through the gateway's `evaluate`. Every branch that is not
+a clean pass ends in BLOCK, including each failure mode (this is the fail-closed
+funnel).
+
+```mermaid
+flowchart TD
+    IN([payload and direction]) --> L1{Layer 1 challenge<br/>static scan}
+    L1 -->|blocking finding| B1[BLOCK]
+    L1 -->|clean or advisory| L2{Layer 2 guard<br/>windowed, parallel, timed}
+    L2 -->|error or timeout| B2[BLOCK]
+    L2 -->|any window blocks| B2
+    L2 -->|all pass| LED{Kernel anomaly ledger<br/>score over threshold?}
+    LED -->|yes| B3[BLOCK]
+    LED -->|no| P([PASS])
+
+    classDef block fill:#7f1d1d,stroke:#ef4444,color:#fff;
+    classDef pass fill:#14532d,stroke:#22c55e,color:#fff;
+    class B1,B2,B3 block;
+    class P pass;
+```
+
+### A tool call, both directions
+
+How the kernel wraps a tool call. The outbound block stops the tool before it
+runs; the inbound block is the core guarantee, where the tool already ran but
+its poisoned result is discarded before it can re-enter the model's context.
+
+```mermaid
+flowchart TD
+    CALL([tool call with name and args]) --> POL{tool enabled?<br/>deny-by-default}
+    POL -->|no| D1[BLOCK<br/>tool never runs]
+    POL -->|yes| OUT{vet OUTBOUND args<br/>L1 then L2}
+    OUT -->|block| D2[BLOCK<br/>tool never runs]
+    OUT -->|pass| EXEC[execute inner tool<br/>side effects may happen]
+    EXEC --> SZ{result within size cap?}
+    SZ -->|no| D3[BLOCK]
+    SZ -->|yes| INB{vet INBOUND result<br/>L1 then L2}
+    INB -->|block| D4[BLOCK<br/>poisoned result discarded,<br/>never returned to context]
+    INB -->|pass| LED2{anomaly ledger<br/>over threshold?}
+    LED2 -->|yes| D5[BLOCK]
+    LED2 -->|no| RET([return vetted result])
+
+    classDef block fill:#7f1d1d,stroke:#ef4444,color:#fff;
+    classDef pass fill:#14532d,stroke:#22c55e,color:#fff;
+    class D1,D2,D3,D4,D5 block;
+    class RET pass;
+```
+
 ## Quick start (end-to-end with a real model)
 
 Two commands take a fresh Linux install to a reproducible benchmark. This works
