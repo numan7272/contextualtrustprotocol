@@ -26,6 +26,39 @@ action = "flag"
 severity = "medium"
 description = "Role-marker lines inside data payloads"
 
+# Plaintext prompt-exfiltration. Gated on direct address ("your") so it fires
+# on the imperative attack ("output your system prompt") but not on text that
+# merely discusses the topic ("how attackers reveal the system prompt"). What
+# is catchable here at ~16 us must not depend on the fallible multi-second
+# guard (see docs/benchmarks/2026-06-cpu-qwen.md, where a 0.5B passed this).
+[[challenge.rules]]
+id = "prompt_exfiltration"
+pattern = '(?i)\b(reveal|repeat|print|output|show|disclose|dump|leak)\s+(me\s+)?your\s+(full\s+|complete\s+|exact\s+|entire\s+|verbatim\s+|initial\s+|original\s+|hidden\s+|system\s+)*(system\s+prompt|prompt|instructions|directives)\b'
+action = "block"
+severity = "high"
+description = "Imperative request to disclose the system prompt/instructions"
+
+# Role/identity reassignment. Gated on the "you are now ... mode/DAN" frame,
+# which is the strong discriminator from descriptive uses of "developer mode".
+[[challenge.rules]]
+id = "role_reassignment"
+pattern = '(?i)\byou\s+are\s+(now\s+)?(in\s+)?(a\s+|the\s+)?((developer|debug|admin|god|root|sudo|maintenance|unrestricted|unfiltered)\s+mode|dan|jailbroken|jailbreak\s+mode)\b'
+action = "block"
+severity = "high"
+description = "Attempt to reassign the reader's role/mode (DAN, developer mode)"
+
+# Safety/guardrail-off phrasings. FLAG, not block: "safety filters are
+# disabled" is also a legitimate description (an incident report, a log), so
+# this annotates and feeds the multi-turn anomaly ledger rather than blocking
+# on its own. The actual attack above ("you are now in developer mode") is
+# caught by role_reassignment; this is the additive signal.
+[[challenge.rules]]
+id = "safety_override"
+pattern = '(?i)\b(safety|content|security|moderation)\s+(filters?|guards?|guardrails?|checks?|controls?|features?|measures?|settings?)\s+(\w+\s+){0,2}?(off|disabled|removed|bypassed|deactivated)\b'
+action = "flag"
+severity = "medium"
+description = "Safety/guardrail-disabled phrasing (advisory; ambiguous in prose)"
+
 [guard]
 # REQUIRED. "mock" performs NO real classification — tests only.
 # Production deployments use "llama" with a local GGUF model.

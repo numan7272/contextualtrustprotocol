@@ -11,6 +11,23 @@ those revisions are noted and recorded in full as ADRs (`docs/adr/`).
 
 ## [Unreleased]
 
+### Added (post-Step-8, detection)
+- L1 plaintext rules for the attacks the benchmark showed reaching the fallible
+  guard: `prompt_exfiltration` (block, gated on "your system prompt" so it fires
+  on the imperative attack but not on text discussing it), `role_reassignment`
+  (block, gated on the "you are now … mode/DAN" frame), and `safety_override`
+  (flag, not block — "safety filters disabled" is also a legitimate
+  description). What is catchable at ~16 µs no longer depends on a 3.9 s model
+  that may be wrong. The corpus test now loads the *shipped* `ctp.toml.example`
+  (no drift) and proves these block the benchmark payloads while leaving
+  security writeups, incident reports, and legit "developer mode" docs un-
+  blocked.
+- ADR 0013: guard flags/confidence stay strictly non-decisional. Documents the
+  trade-off using the 3B "flagged developer_mode then PASSed" case as the
+  motivating example and the manipulation argument (flags are
+  attacker-influenceable model output; making them decisional reopens the
+  channel CTP exists to close) as the rationale.
+
 ### Added (post-Step-8, evidence)
 - First real-model benchmark, recorded in `docs/benchmarks/2026-06-cpu-qwen.md`:
   L1 at 16 µs; L2 at 3.9 s for a 0.5B on CPU (over the 500 ms budget, ~2× per

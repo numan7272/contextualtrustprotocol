@@ -20,6 +20,7 @@ usually a decision not yet understood.
 | [0010](0010-rust-tonic-uds-stack.md) | Rust + Tokio + tonic over Unix domain sockets | Accepted |
 | [0011](0011-deny-by-default-config.md) | Deny-by-default configuration | Accepted |
 | [0012](0012-gateway-vs-kernel-enforcement.md) | Gateway evaluates; kernel enforces (not yet unified) | Accepted (limitation) |
+| [0013](0013-flags-are-non-decisional.md) | Guard flags/confidence stay strictly non-decisional | Accepted |
 
 ## Known deviations from intent
 
