@@ -13,7 +13,9 @@ those revisions are noted and recorded in full as ADRs (`docs/adr/`).
 
 ### Added (post-Step-8, reproducible benchmark)
 - `scripts/setup.sh` and `scripts/bench.sh`: one command to go from a fresh
-  WSL2 to an end-to-end run. setup checks deps (cmake, libclang, Rust),
+  Linux install to an end-to-end run. Works on any Linux with bash (Ubuntu,
+  Fedora, Arch, openSUSE, Alpine, WSL2); setup detects the package manager for
+  its dependency hints, checks deps (cmake, libclang, a C/C++ compiler, Rust),
   downloads a GGUF model, builds the llama-backed guard plus the orchestrator
   and a bench client, and writes a local config; bench starts both processes,
   waits until they listen, pushes the payload corpus through the gRPC gateway,

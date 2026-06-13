@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # CTP setup: check dependencies, fetch a GGUF model, build the llama-backed
 # guard plus the orchestrator and bench client, and write a local test config.
-# One command to get from a fresh WSL2 to a runnable end-to-end benchmark.
+# One command to get from a fresh Linux install to a runnable end-to-end
+# benchmark. Works on any Linux with bash (Ubuntu, Debian, Fedora, Arch,
+# openSUSE, Alpine, and WSL2); the dependency hints adapt to your package
+# manager.
 #
 # Override anything via the environment, for example:
 #   GUARD_FEATURES=llama,vulkan ./scripts/setup.sh     # build with GPU (Vulkan)
@@ -22,6 +25,41 @@ warn() { printf '\033[1;33mwarn:\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
 # --- dependencies -----------------------------------------------------------
+# Detect the package manager so hints fit the distro, not just Debian/Ubuntu.
+PM=""
+for cand in apt-get dnf pacman zypper apk; do
+  if command -v "$cand" >/dev/null 2>&1; then PM="$cand"; break; fi
+done
+
+pm_install() { # packages... -> a copy-pasteable install command
+  case "$PM" in
+    apt-get) echo "sudo apt-get install -y $*" ;;
+    dnf)     echo "sudo dnf install -y $*" ;;
+    pacman)  echo "sudo pacman -S --needed $*" ;;
+    zypper)  echo "sudo zypper install -y $*" ;;
+    apk)     echo "sudo apk add $*" ;;
+    *)       echo "install with your package manager: $*" ;;
+  esac
+}
+
+pkg_for() { # logical dep -> package name(s) for the detected manager
+  case "$1:$PM" in
+    clang:apt-get)     echo "libclang-dev clang" ;;
+    clang:dnf)         echo "clang-devel" ;;
+    clang:pacman)      echo "clang" ;;
+    clang:zypper)      echo "clang-devel" ;;
+    clang:apk)         echo "clang-dev" ;;
+    clang:*)           echo "libclang/clang development package" ;;
+    toolchain:apt-get) echo "build-essential" ;;
+    toolchain:dnf)     echo "gcc gcc-c++ make" ;;
+    toolchain:pacman)  echo "base-devel" ;;
+    toolchain:zypper)  echo "gcc gcc-c++ make" ;;
+    toolchain:apk)     echo "build-base" ;;
+    toolchain:*)       echo "a C/C++ compiler and make" ;;
+    cmake:*)           echo "cmake" ;;
+  esac
+}
+
 info "Checking dependencies"
 missing=0
 
@@ -30,7 +68,16 @@ if ! command -v cargo >/dev/null 2>&1; then
   missing=1
 fi
 if ! command -v cmake >/dev/null 2>&1; then
-  warn "cmake not found. Install: sudo apt install cmake"
+  warn "cmake not found. Install: $(pm_install "$(pkg_for cmake)")"
+  missing=1
+fi
+# A C/C++ compiler and make are needed for the native llama.cpp build.
+if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
+  warn "no C compiler found. Install: $(pm_install "$(pkg_for toolchain)")"
+  missing=1
+fi
+if ! command -v c++ >/dev/null 2>&1 && ! command -v g++ >/dev/null 2>&1; then
+  warn "no C++ compiler found. Install: $(pm_install "$(pkg_for toolchain)")"
   missing=1
 fi
 
@@ -43,7 +90,7 @@ if [ -z "$LIBCLANG_DIR" ] && [ -n "${LIBCLANG_PATH:-}" ]; then
   LIBCLANG_DIR="$LIBCLANG_PATH"
 fi
 if [ -z "$LIBCLANG_DIR" ]; then
-  warn "libclang not found. Install: sudo apt install libclang-dev"
+  warn "libclang not found. Install: $(pm_install "$(pkg_for clang)")"
   missing=1
 else
   export LIBCLANG_PATH="$LIBCLANG_DIR"

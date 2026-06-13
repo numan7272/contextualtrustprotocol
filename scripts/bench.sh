@@ -2,6 +2,7 @@
 # CTP end-to-end benchmark: start the guard and orchestrator, wait until both
 # are listening, push the payload corpora through the gateway, write the
 # results, and clean up the processes. Run ./scripts/setup.sh first.
+# Runs on any Linux with bash (the TCP readiness check uses bash's /dev/tcp).
 #
 # Override via the environment, for example:
 #   CONFIG=ctp.local.toml HOST=127.0.0.1 PORT=50051 ./scripts/bench.sh

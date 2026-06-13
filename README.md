@@ -77,10 +77,12 @@ maps to a BLOCK decision; there is no fallible path to PASS.
 
 ## Quick start (end-to-end with a real model)
 
-Two commands take a fresh WSL2 to a reproducible benchmark. The first checks
-dependencies, downloads a small GGUF model, builds the llama-backed guard, and
-writes a local config. The second runs the guard and orchestrator and pushes a
-payload corpus through the gateway.
+Two commands take a fresh Linux install to a reproducible benchmark. This works
+on any Linux with bash (Ubuntu, Debian, Fedora, Arch, openSUSE, Alpine, and
+WSL2); `setup.sh` adapts its dependency hints to your package manager. The
+first command checks dependencies, downloads a small GGUF model, builds the
+llama-backed guard, and writes a local config. The second runs the guard and
+orchestrator and pushes a payload corpus through the gateway.
 
 ```sh
 ./scripts/setup.sh          # deps, model, build, config
