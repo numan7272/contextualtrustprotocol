@@ -11,6 +11,21 @@ those revisions are noted and recorded in full as ADRs (`docs/adr/`).
 
 ## [Unreleased]
 
+### Added (post-Step-8, reproducible benchmark)
+- `scripts/setup.sh` and `scripts/bench.sh`: one command to go from a fresh
+  WSL2 to an end-to-end run. setup checks deps (cmake, libclang, Rust),
+  downloads a GGUF model, builds the llama-backed guard plus the orchestrator
+  and a bench client, and writes a local config; bench starts both processes,
+  waits until they listen, pushes the payload corpus through the gRPC gateway,
+  writes Markdown and CSV, and cleans up.
+- `ctp-orchestrator/examples/bench_client.rs`: gRPC client that drives the
+  gateway and records verdict, deciding layer, and latency per payload (driving
+  gRPC from bash without reflection is brittle; a real client is reproducible).
+- `payloads/benign.txt` and `payloads/injections.txt`: one payload per line,
+  easy to extend.
+- Rewrote the README for clarity and a natural voice, and added a prominent
+  Quick start for the scripts.
+
 ### Added (post-Step-8, detection)
 - L1 plaintext rules for the attacks the benchmark showed reaching the fallible
   guard: `prompt_exfiltration` (block, gated on "your system prompt" so it fires
