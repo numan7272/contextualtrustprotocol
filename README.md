@@ -311,5 +311,12 @@ is recommended before CTP is relied on to protect anything that matters.
 
 ## License
 
-To be determined. Until a license is added, no rights are granted. The code is
-readable but not yet licensed for use, modification, or redistribution.
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
+
+at your option. This is the common Rust dual-license: use whichever fits your
+project. Unless you state otherwise, any contribution you submit for inclusion
+in this work, as defined in the Apache-2.0 license, is dual-licensed as above,
+with no additional terms or conditions.

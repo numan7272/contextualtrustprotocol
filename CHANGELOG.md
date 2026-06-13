@@ -11,6 +11,12 @@ those revisions are noted and recorded in full as ADRs (`docs/adr/`).
 
 ## [Unreleased]
 
+### Added (post-Step-8, license)
+- Dual-licensed MIT OR Apache-2.0 (the Rust convention). Added `LICENSE-MIT`
+  and `LICENSE-APACHE` (canonical text), set `license` in the workspace and on
+  every crate, and updated the README. The repo was previously unlicensed,
+  which meant no rights were granted to anyone; it is now open source.
+
 ### Added (post-Step-8, reproducible benchmark)
 - `scripts/setup.sh` and `scripts/bench.sh`: one command to go from a fresh
   Linux install to an end-to-end run. Works on any Linux with bash (Ubuntu,

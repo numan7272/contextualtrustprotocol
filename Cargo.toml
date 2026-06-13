@@ -13,6 +13,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.94"
 repository = "https://github.com/numan7272/contextualtrustprotocol"
+license = "MIT OR Apache-2.0"
 
 # All versions are exact-pinned (`=`). Upgrades are deliberate, reviewed
 # events — never a side effect of `cargo update`. Cargo.lock is committed.
