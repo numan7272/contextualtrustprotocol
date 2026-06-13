@@ -88,12 +88,21 @@ cargo fmt --check
 
 The real guard backend (`--features llama` on `ctp-guard`) builds llama.cpp
 natively (needs libclang + cmake) and is **not** part of the default hermetic
-suite. It compiles against llama-cpp-2 0.1.146, but its inference path has not
-been run against a real GGUF model — runtime behavior there is unverified.
+suite.
 
 ```sh
 LIBCLANG_PATH=/path/to/libclang cargo check -p ctp-guard --features llama
 ```
+
+It has been run against real models (Qwen2.5-0.5B/3B) — see
+[`docs/benchmarks/`](docs/benchmarks/2026-06-cpu-qwen.md). The headline result:
+**CPU inference is multi-second per verdict (3.9 s for a 0.5B), far over the
+500 ms budget and not viable inline.** A GPU backend is effectively required;
+build with one of `--features llama,vulkan` (cross-vendor, recommended for
+AMD), `llama,rocm`, or `llama,cuda` (each needs its native SDK on the host,
+none are in this repo's CI). Detection scaled with model size and confirmed
+the threat model's prediction — the 0.5B is not usable; even the 3B was
+internally inconsistent (flagged an attack, then passed it).
 
 ## Running
 

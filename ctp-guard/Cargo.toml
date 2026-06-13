@@ -12,6 +12,16 @@ default = []
 # Real inference via llama.cpp (builds native code through llama-cpp-sys-2).
 # Off by default: tests and CI run against the deterministic mock backend.
 llama = ["dep:llama-cpp-2"]
+# GPU acceleration backends. CPU inference of a small model is multi-second
+# per verdict (measured: 3.9s for a 0.5B on a Ryzen 9); a GPU backend is what
+# makes the guard viable in the per-tool-call path. Each requires its native
+# SDK/driver on the build host and is NOT exercised by this repo's CI.
+#   vulkan — cross-vendor (RADV/AMD, NVIDIA, Intel); recommended for AMD RDNA
+#   rocm   — AMD ROCm/HIP
+#   cuda   — NVIDIA CUDA
+vulkan = ["llama", "llama-cpp-2/vulkan"]
+rocm = ["llama", "llama-cpp-2/rocm"]
+cuda = ["llama", "llama-cpp-2/cuda"]
 
 [dependencies]
 ctp-core.workspace = true

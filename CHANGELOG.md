@@ -11,6 +11,17 @@ those revisions are noted and recorded in full as ADRs (`docs/adr/`).
 
 ## [Unreleased]
 
+### Added (post-Step-8, evidence)
+- First real-model benchmark, recorded in `docs/benchmarks/2026-06-cpu-qwen.md`:
+  L1 at 16 µs; L2 at 3.9 s for a 0.5B on CPU (over the 500 ms budget, ~2× per
+  tool call since both directions are vetted); detection scales with model size
+  and confirmed the threat model — the 0.5B passed a prompt-exfiltration attack,
+  and the 3B flagged "developer mode" yet returned PASS.
+- `vulkan` / `rocm` / `cuda` features on `ctp-guard` to build the guard with GPU
+  acceleration (the host GPU was idle during the CPU benchmark; a GPU backend is
+  effectively required to bring L2 into budget). Each needs its native SDK and is
+  not in CI.
+
 ### Fixed (post-Step-8, runtime)
 - The guard hard-aborted in llama.cpp at inference time against a real model on
   CPU (`GGML_ASSERT(!stacks.empty())`). The real cause was a **double-accept**
