@@ -172,12 +172,16 @@ LIBCLANG_PATH=/path/to/libclang cargo check -p ctp-guard --features llama
 ```
 
 It has been run against real models (Qwen2.5-0.5B and 3B); see
-[`docs/benchmarks/`](docs/benchmarks/2026-06-cpu-qwen.md). The headline result:
-CPU inference is several seconds per verdict, well over the 500 ms budget and
-not viable inline, so a GPU backend (`vulkan`, `rocm`, or `cuda`) is in
-practice required. Detection scaled with model size and matched the threat
-model's prediction. The 0.5B was not usable; even the 3B was inconsistent (it
-flagged an attack and then passed it).
+[`docs/benchmarks/`](docs/benchmarks/). On CPU
+([cpu](docs/benchmarks/2026-06-cpu-qwen.md)) inference is several seconds per
+verdict, well over the 500 ms budget and not viable inline. On a GPU via Vulkan
+([gpu](docs/benchmarks/2026-06-gpu-vulkan.md)) the 3B comes down to about
+500 ms per verdict, right at the budget, so a GPU backend (`vulkan`, `rocm`, or
+`cuda`) is in practice required. Detection scaled with model size and matched
+the threat model's prediction. The 0.5B was not usable; even the 3B was
+inconsistent (it flagged an attack and then passed it). The largest remaining
+latency lever is prefix-caching the static system prompt, which the GPU
+benchmark estimates would roughly halve the per-verdict time.
 
 ## Running
 

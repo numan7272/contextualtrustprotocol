@@ -11,6 +11,18 @@ those revisions are noted and recorded in full as ADRs (`docs/adr/`).
 
 ## [Unreleased]
 
+### Added (post-Step-8, GPU benchmark)
+- `docs/benchmarks/2026-06-gpu-vulkan.md`: the guard on an RX 7800 XT via the
+  Vulkan backend, Qwen2.5-3B, measured through CTP's real prompt path
+  (`guard_system_v1.txt` + `verdict.gbnf`, raw, AddBos, no chat template). Both
+  verdicts correct, no false positive. About 500 ms per verdict, right at the
+  inline budget, versus several seconds on CPU; generation throughput roughly
+  5x (about 23 to 122 tokens/s). Prompt eval dominates at ~57% because the
+  ~750-token system prompt is re-prefilled every call; prefix-caching it is
+  identified as the top future latency lever (~230 ms estimated total).
+  Confidence shown to be noise (0.00 vs 0.99 on correct verdicts), reinforcing
+  ADR-0013. README benchmark summary updated to reflect the GPU result.
+
 ### Added (post-Step-8, license)
 - Dual-licensed MIT OR Apache-2.0 (the Rust convention). Added `LICENSE-MIT`
   and `LICENSE-APACHE` (canonical text), set `license` in the workspace and on
